@@ -1,0 +1,4 @@
+# Predictive-Analysis
+
+The project includes the dataset (Indian Liver Patient Dataset) obtained from https://www.kaggle.com/ jeevannagaraj/indian-liver-patient-dataset. The dataset is downloaded as .csv format and is loaded onto R studio cloud. This is a Machine Learning project that includes usage of 3 different classification algorithms. This is a case of classfication where using atleast 3 models, based on the performation of the model, ranking of each model will take place. In the dataset, ‘is_patient’ is a column that contains 1 or 2: 1 indicates the presence of liver disease in the patient and 2 indicates otherwise.
+The goal includes checking the performance (of classification) of algorithms with respect to the dependent variable:‘is_patient’ based on important features selected from the dataset.
