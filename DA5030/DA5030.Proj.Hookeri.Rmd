@@ -1,0 +1,366 @@
+---
+title: "DA5030 : Term Project"
+author: "Nidhi Hookeri"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document: default
+  html_notebook: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  # mute messages output
+  message = FALSE
+)
+```
+
+The project includes the dataset (Indian Liver Patient Dataset) obtained from https://www.kaggle.com/jeevannagaraj/indian-liver-patient-dataset. The dataset is downloaded as .csv format and is loaded onto R studio cloud. This is a case of classfication where using atleast 3 models, based on the performation of the model, ranking of each model will take place. In the dataset, 'is_patient' is a column that contains 1 or 2: 1 indicates the presence of liver disease in the patient and 2 indicates otherwise. 
+
+The goal includes checking the performance (of classification) of algorithms with respect to the dependent variable:'is_patient' based on important features selected from the dataset. 
+
+*Data understanding:*
+
+Includes exploring data, verifying quality of data, checking the presence of NA values. 
+
+-"funModeling" is a package that can be used in the process of data understanding, it comes with various function such as 'freq', 'plot_num', 'profling_num' 
+```{r load_libraries, warning=FALSE}
+#Loading the dataset 
+liverdata = read.csv("Indian Liver Patient Dataset (ILPD).csv")
+
+#Exploring data - Number of observations (rows) and variables and the 
+#head of first cases with it's data structure 
+str(liverdata)
+
+#Analyzing categorical variable
+#install.packages("funModeling")
+library(funModeling)
+freq(liverdata)
+
+#Analyzing numeric variable
+plot_num(liverdata)
+#The graphs will get exported to current directory
+plot_num(liverdata, path_out = ".")
+
+#Quantitative analysis 
+#skewness, range98, standard deviation can be looked at to understand #the data
+profiling_num(liverdata)[,c(1,3,12,13,15)]
+
+#Checking the presence of missing values
+summary(is.na(liverdata))
+```
+*Result Interpretation:*
+
+-The dataset contains 583 samples, in which 416 are patients of liver disease and 167 are otherwise with 11 features that contain both categorical and numerical variables 
+
+-'funModelling' package allows different functions that can help in understanding the so that, correct implementations of the algorithms can happen. 
+
+-'freq' is a function that allows to statistically analyze the categorical variable present in the dataset. It automatically picks out the categorical variable and performs it's course of action.
+
+Quantative analysis: There seems to be a lot of spread in the data in tot_proteins, albumin and ag_ratio. 
+
+-'age', 'sgpt', 'sgot' follow minutely left-skewned distribution [range: -0.02 to -0.04]
+
+-range98 talks about the range of where 98% of the data points lie
+
+Presence of NA values: There are 4 NA's that are present in the dataset, all the 4 are present in the column Alkaline Phosphatase.
+
+Source: https://blog.datascienceheroes.com/exploratory-data-analysis-data-preparation-with-funmodeling/
+ 
+```{r}
+#Detection of outliers
+x = which(abs(scale(liverdata$direct_bilirubin)) > 3, liverdata$direct_bilirubin)
+
+x1 = which(abs(scale(liverdata$sgpt)) > 3, liverdata$sgpt)
+
+x2 = which(abs(scale(liverdata$sgot)) > 3, liverdata$sgot)
+
+x3 = which(abs(scale(liverdata$alkphos)) > 3, liverdata$alkphos)
+```
+ 
+ There are a few outliers that are not significantly differing from the data. Hence, the outliers are kept as the other features in that row are important. 
+ 
+*Data Preparation:*
+
+This step entails selecting data, cleaning data. 
+Selecting data: Important features are selected to proceed with, data transformation, categorical variables are converted into numerical variable
+Cleaning data: The NA rows are omitted
+
+```{r}
+#Removing the rows that contain NA, since, there are only 4 rows that have NA value out of 583 observations
+na_liverdata = na.omit(liverdata)
+
+#Converting categorical variable into numeric variable
+#Gender is a categorical variable. Female is 1 and Male is 2.
+na_liverdata$gender = as.numeric(na_liverdata$gender)
+
+#Feature selection
+#Best method for numeric input, numeric output is Pearson correlation
+#Checking co-relation between the variables of the dataset
+correlation = cor(na_liverdata)
+correlation
+
+#Visually representing correlation
+#install.packages("corrplot")
+library(corrplot)
+corrplot(correlation)
+```
+
+*Result Interpretation:* 
+
+-The 4 NA values are omitted leaving behind a total of 579 samples. 
+
+Result of correlation matrix and plot:
+
+According to the correlation matrix above, there is a co-relation between the direct_bilirubin and total_bilirubin, between sgot(Alanine Aminotransferase) and sgpt(Aspartate Aminotransferase) and between Alkaline Phosphatase and Aspartate aminotransferase. 
+
+The correlation between the direct and total is obvious, because as total bilirubin is the sum of direct and indirect bilirubin, so they have linear proportionality. 
+
+The relationship between sgpt and sgot also is strong since, both of them play a vital role in causing liver disease. Elevated levels of transferases cause liver disease. The correlation co-efficient is 0.78.
+
+Elevated levels of alkaline phosphatase also causes liver damage. The corelation coeffecient between alkaline phosphatase and Alanine Aminotransferase(sgot) is 0.69
+
+After studying the correlation between variables, we can say that, aspartate aminotransferase, alanine aminotransferase, alkaline phosphatase and direct bilirubin are leading factors in causing liver disease. 
+
+*Principle Component Analysis*
+
+PCA helps in reducing the dimension of the dataset by decreasing the number of variables. From this, we can infer the variation criteria observed in each principal component. 
+
+```{r}
+#Selecting data
+features = na_liverdata[,c(4,5,6,8,9,10)]
+#Scaling the data
+features_scaled = as.data.frame(scale(features))
+
+#Adding age and is_patient columns to the scaled dataframe
+features_scaled$age = na_liverdata$age
+features_scaled$is_patient = na_liverdata$is_patient
+
+#Computing PCA 
+features_pca = prcomp(features_scaled)
+features_summ = summary(features_pca)
+features_summ
+
+#Plotting PCA
+#install.packages("ggfortify")
+library(ggfortify)
+autoplot(features_pca, data = features_scaled, 
+         colour = 'is_patient', loadings = TRUE, loadings.label = TRUE, loadings.label.size  = 3)
+```
+
+*Result Interpretation:*
+
+It is clear from the result that about 97% variation is observed in PC1. With respect to 'is_patient', 'age' is proportional to 'sgot' and 'alkphos' and is negatively proportional to the rest. 
+
+
+Direct_bilirubin is an important factor that causes liver disease but it is also seen that sgpt, sgot and alkphos also contribute to the cause of liver disease from correlation, hence, the mentioned three are included in the further analysis.
+```{r}
+#Extracting data from important features 
+#Important features are direct bilirubin, sgpt, sgot and alkphos
+imp_features = na_liverdata[,c(4, 8, 9, 10)]
+#summary(imp_features)
+hist(imp_features$alkphos)
+
+#Scaling the data
+scaled_data = as.data.frame(scale(imp_features))
+#summary(scaled_data)
+#Representation of the scaled data
+hist(scaled_data$alkphos)
+
+#Adding the age and gender column to the scaled data
+scaled_data$age = na_liverdata$age
+scaled_data$gender = na_liverdata$gender
+scaled_data$is_patient = na_liverdata$is_patient
+```
+
+*Modeling:*
+
+1) Splitting the dataset into training and testing data
+2) Naive Bayes, SVM algorithm, Decision tree algorithms were implemented - these are the best models used for numeric variables. 
+3) Evaluation of the model and accuracy of the model is calculated alongside
+```{r}
+#Splitting the dataset into training and testing data (80-20%)
+sample = sample(nrow(scaled_data), 0.80*nrow(scaled_data))
+train = scaled_data[sample,]
+test = scaled_data[-sample,]
+```
+
+*Model 1 - Naive Bayes Algorithm:*
+
+This is an algorithm that is used for classification. This algorithm assumes that the presence of one feature in a class is completely unrelated to the presence of all other features.
+```{r}
+set.seed(234)
+#Using the package e1071 for Naive Bayes 
+library(e1071)
+
+#Factorizing the dataset
+train_fac = as.data.frame(lapply(train, factor))
+test_fac = as.data.frame(lapply(test, factor))
+
+#Using the function to classify
+naive_model = naiveBayes(is_patient~. , data = train_fac)
+
+#Predicting for test dataset
+pred_naive = predict(naive_model, test$is_patient, type = "class")
+
+#Confusion matrix to check accuracy
+naive_table = table(pred_naive, test_fac$is_patient)
+
+naive_acc = sum(diag(naive_table)) / sum(naive_table)
+cat("The accuracy of the classification using Naive Bayes model is", naive_acc*100,"%")
+```
+*Result Interpretation:*
+
+Naive Bayes is an algorithm that doesnot consider the dependency relationship between feautres. Hence, this is a good algorithm to begin with. After attempting to check the correct classification rate, it's seen that 81 out of 116 are correctly classified as patients with liver disease with 35 misclassifications. 
+
+*Model 2 - SVM algorithm:*
+
+SVM works on the basis of creating hyperplanes by which it classifies the data points. The algorithm can be used both for regression and classification but is widely used for classification. 
+
+```{r}
+#Loading library
+library(e1071)
+
+#Using svm function from the library
+svm_model = svm(is_patient~., data = train, type = 'C-classification', kernel = 'linear')
+summary(svm_model)
+
+#Predicting with the test data
+svm_pred = predict(svm_model, test[,1:6])
+
+#Creating a confusion matrix
+svm_table = table(test[,7], svm_pred)
+
+svm_acc = sum(diag(svm_table)) / sum(svm_table)
+cat("The accuracy of the SVM model is", svm_acc*100,"%")
+```
+
+*Result Interpretation:*
+
+There are a total of 83 out of 116 correctly classified cases. 
+
+
+*Model 3 - Decision tree:*
+
+It is a supervised machine learning algorithm where the data is continuously split according to certain parameters. The algorithm was used to check classification of patients with liver disease or otherwise.
+```{r}
+#install.packages("rpart")
+#install.packages("caret")
+library(rpart)
+library(caret)
+#Using the function rpart to build decision tree
+dt_model = rpart(is_patient~., data = train, method = "class")
+
+#Visualization of the built decision tree
+#install.packages("rpart.plot")
+library(rpart.plot)
+rpart.plot(dt_model)
+
+#Predicting with test data : Predict the class (1/2) of the test set
+dt_pred = predict(dt_model, test, type = "class")
+
+#Table to count how many are diagnosed with liver condition and not and
+#compare to the correct classification
+dt_table = table(dt_pred, test$is_patient)
+dt_table
+
+#Accuracy calculation
+dt_acc = sum(diag(dt_table)) / sum(dt_table)
+
+cat("The accuarcy of classification using decision tree is", dt_acc*100,"%")
+
+#ROC plot and AUC  
+#install.packages("pROC")
+library(pROC)
+dt_roc = roc(dt_pred, test$is_patient)
+plot(dt_roc)
+dt_auc = auc(dt_roc)
+cat("The AUC of the model is",dt_auc)
+```
+
+*Result Interpretation:*
+
+76 samples are classified correctly with 40 misclassifications. 
+
+AUC : Area under curve is a very well used method for model evaluation. From the evaluation, we can infer the capacity of the model to classify. Higher the AUC (closer to 1), higher the ability to correctly classify the data. 
+
+*Random Forest:* 
+
+Random forest chooses a random subset of features and builds many Decision Trees. The model averages out all the predictions of the Decisions trees
+-It is an ensemble model that is used on this data to check classification of the data
+-Random Forest randomly resamples the data and builds multiple decision tree and finally averages the result
+```{r}
+set.seed(1223)
+#install.packages('randomForest')
+library(randomForest)
+
+#Converting the dependent function into factor for classification
+trainx = train
+testx = test
+trainx$is_patient = factor(trainx$is_patient)
+testx$is_patient = factor(testx$is_patient)
+
+#Implementing randomForest algorithm on the train data
+rf_model = randomForest(is_patient~., data = trainx, proximity = T)
+
+#Predicting on the test data
+rf_pred = predict(rf_model, testx)
+
+#Creating a table to interpret classifications and misclassification
+rf_table = table(rf_pred, testx$is_patient)
+rf_table
+
+rf_acc = sum(diag(rf_table)) / sum(rf_table)
+cat("The accuracy of the model is", rf_acc*100,"%")
+
+#ROC plot and AUC
+rf_roc = roc(rf_pred, test$is_patient)
+plot(rf_roc)
+rf_auc = auc(rf_roc)
+cat("The AUC of the model is",rf_auc)
+```
+
+*Result Interpretation:*
+
+The total number of misclassifications is 35 which is lesser than the total mis-classifications of decision tree model (presented above). 81 samples are classified correctly. The accuracy of the model is significantly higher. 
+
+
+*Classification evaluation:*
+
+*Precision and recall calculation:*
+
+Precision is defined as the fraction of correct predictions for a certain class, whereas recall is the fraction of instances of a class that were correctly predicted.
+```{r}
+#Calculating precision and recall
+#For Decision Tree
+dt_prec = as.data.frame(diag(dt_table) / colSums(dt_table))[1,]
+dt_recall = as.data.frame(diag(dt_table) / rowSums(dt_table))[1,]
+
+#For SVM
+svm_prec = as.data.frame(diag(svm_table) / colSums(svm_table))[1,]
+svm_recall = as.data.frame(diag(svm_table) / rowSums(svm_table))[1,]
+
+#For Naive Bayes
+naive_prec = as.data.frame(diag(naive_table) / colSums(naive_table))[1,]
+naive_recall = as.data.frame(diag(naive_table) / rowSums(naive_table))[1,]
+
+#For Random Forest
+rf_prec = as.data.frame(diag(rf_table) / colSums(rf_table))[1,]
+rf_recall = as.data.frame(diag(rf_table) / rowSums(rf_table))[1,]
+
+finale = data.frame("Precision"=c(rf_prec, dt_prec, svm_prec, naive_prec), "Recall"=c(rf_recall, dt_recall, svm_recall, naive_recall), "Accuracy"=c(rf_acc*100, dt_acc*100, svm_acc*100, naive_acc*100))
+rownames(finale) = c("Random Forest", "Decision tree", "SVM", "Naive Bayes")
+finale
+```
+
+*Result Interpretation:* 
+
+For binary classification, the positive class is looked at while reporting metrics for precision and recall. 
+
+Source: https://blog.revolutionanalytics.com/2016/03/com_class_eval_metrics_r.html
+
+References:
+1)https://www.analyticsvidhya.com/blog/2015/11/beginners-guide-on-logistic-regression-in-r/?
+2)https://towardsdatascience.com/decision-tree-classification-de64fc4d5aac
+
+
